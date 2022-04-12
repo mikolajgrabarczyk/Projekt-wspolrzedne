@@ -1,6 +1,9 @@
 from math import sin, cos, sqrt, atan, atan2, degrees, radians
 import math
 import numpy as np
+
+#plik = "projekt_1_dane.txt"
+#tablica = np.genfromtxt(plik, delimiter=',',skip_header=4)
 class Transformacje:
     def __init__(self, model: str = "wgs84"):
         """
@@ -25,8 +28,8 @@ class Transformacje:
         else:
             raise NotImplementedError(f"{model} model not implemented")
         self.flat = (self.a - self.b) / self.a
-        self.ecc = sqrt(2 * self.flat - self.flat ** 2) # eccentricity  WGS84:0.0818191910428 
-        self.ecc2 = (2 * self.flat - self.flat ** 2) # eccentricity**2
+        self.e = sqrt(2 * self.flat - self.flat ** 2) # eccentricity  WGS84:0.0818191910428 
+        self.e2 = (2 * self.flat - self.flat ** 2) # eccentricity**2
 
 
     
@@ -53,15 +56,15 @@ class Transformacje:
             dms - degree, minutes, sec
         """
         r   = sqrt(X**2 + Y**2)           # promień
-        lat_prev = atan(Z / (r * (1 - self.ecc2)))    # pierwsze przybliilizenie
+        lat_prev = atan(Z / (r * (1 - self.e2)))    # pierwsze przybliilizenie
         lat = 0
         while abs(lat_prev - lat) > 0.000001/206265:    
             lat_prev = lat
-            N = self.a / sqrt(1 - self.ecc2 * sin(lat_prev)**2)
+            N = self.a / sqrt(1 - self.e2 * sin(lat_prev)**2)
             h = r / cos(lat_prev) - N
-            lat = atan((Z/r) * (((1 - self.ecc2 * N/(N + h))**(-1))))
+            lat = atan((Z/r) * (((1 - self.e2 * N/(N + h))**(-1))))
         lon = atan(Y/X)
-        N = self.a / sqrt(1 - self.ecc2 * (sin(lat))**2);
+        N = self.a / sqrt(1 - self.e2 * (sin(lat))**2);
         h = r / cos(lat) - N       
         if output == "dec_degree":
             return degrees(lat), degrees(lon), h 
@@ -111,14 +114,14 @@ class Transformacje:
         ds = s_ab/n
         
         for x in range(n):
-            M = (a*(1-e2))/(math.sqrt(1-e2*(np.sin(fi_A))**2)**3)
-            N = a/(math.sqrt(1-e2*(np.sin(fi_A))**2))
+            M = (self.a*(1-self.e2))/(math.sqrt(1-self.e2*(np.sin(fi_A))**2)**3)
+            N = self.a/(math.sqrt(1-self.e2*(np.sin(fi_A))**2))
             dfi = ds*np.cos(A_ab)/M
             dA = ((np.sin(A_ab)*np.tan(fi_A))/N)*ds
             fim = fi_A + dfi/2
             Am = A_ab + dA/2
-            Mm = (a*(1-e2))/(math.sqrt(1-e2*(np.sin(fim))**2)**3)
-            Nm = a/(math.sqrt(1-e2*(np.sin(fim))**2))
+            Mm = (self.a*(1-self.e2))/(math.sqrt(1-self.e2*(np.sin(fim))**2)**3)
+            Nm = self.a/(math.sqrt(1-self.e2*(np.sin(fim))**2))
             dfip = (ds*np.cos(Am))/Mm
             dlamp = (ds*np.sin(Am))/(Nm*np.cos(fim))
             dAp = ((np.sin(Am)*np.tan(fim))/Nm)*ds
@@ -152,10 +155,8 @@ class Transformacje:
         FI_A = np.deg2rad(FI_A)
         LAM_A = np.deg2rad(LAM_A)
         
-        a = 6378137
-        e2 = 0.00669438002290
-        b = a*(np.sqrt(1-e2))
-        f = 1-(b/a)
+        b = self.a*(np.sqrt(1-self.e2))
+        f = 1-(b/self.a)
         dlambda = LAM_B-LAM_A
         UA = math.atan((1-f)*(math.tan(FI_A)))
         UB = math.atan((1-f)*(math.tan(FI_B)))
@@ -172,7 +173,7 @@ class Transformacje:
             Ls = L
             L = dlambda+((1-C)*f*(snalfa)*(sigma+(C*(snsigma)*((cs2sigmam)+(C*(cssigma)*(-1+(2*((cs2sigmam)**2))))))))
     
-        u2 = (((a**2)-(b**2))/(b**2))*(cskwalfa);
+        u2 = (((self.a**2)-(b**2))/(b**2))*(cskwalfa);
         A = 1+((u2)/16384)*(4096+(u2)*(-768+(u2)*(320-175*(u2))))
         B = ((u2)/1024)*(256+(u2)*(-128+(u2)*(74-(47*(u2)))))
         
@@ -199,23 +200,66 @@ class Transformacje:
         sek = (A_ABs -st-m/60)*3600
         print(st, 'st', m, 'min', round(sek, 5), 'sek')
         
+        
+    def s2D(self, Xa, Xb ,Ya, Yb):
+        '''
+        Parameters
+        Funkcja przyjmuje za parametry wspolrzedne x,y dwóch punktow i liczy odleglosc plaską
+
+
+        Returns
+        -------
+        Funkcja zwraca odległosc 2D
+
+        '''
+        odleglosc2d = math.sqrt((Xb - Xa)**2 + (Yb - Ya)**2)
+        return odleglosc2d
+    
+        
+    def s3D(self, Xa, Xb, Ya, Yb, Za, Zb):
+        '''
+        Parameters
+        Funkcja przyjmuje za parametry wspolrzedne x,y,z dwóch punktow i liczy odleglosc w trojwymiarze
+
+        Returns
+        -------
+        Funkcja zwraca odleglosc 3D
+
+        '''
+        odleglosc3d = math.sqrt((Xb - Xa)**2 + (Yb - Ya)**2 +(Zb-Za)**2)
+        return odleglosc3d
+        
     
     
     
     
     def uklad_1992(self,fi, lam, a, e2, m_0):
-        N = a/(math.sqrt(1-e2 * np.sin(fi)**2))
+        """
+        
+
+        Parameters
+        Funkcja przyjmuje za parametry długosc i szerokosc geograficzna, dużą półos elipsy , 
+        mimosrod i poludnik osiowy(w przypadku odwzorowania 1992 , 19 poludnik osiowy)
+       
+
+        Returns
+        Funckja zwraca współrzędne punktów XY w ukłdzie odniesienia 1992
+        -------
+.
+
+        """
+        N = self.a/(math.sqrt(1-self.e2 * np.sin(fi)**2))
         t = np.tan(fi)
-        n2 = e2 * np.cos(lam)**2
+        n2 = self.e2 * np.cos(lam)**2
         lam_0 = math.radians(19) #poczatek ukladu w punkcie przeciecia poludnika L0 = 19st z obrazem równika 
         l = lam - lam_0
         
-        A_0 = 1 - (e2/4) - (3*(e2**2))/64 - (5*(e2**3))/256
-        A_2 = 3/8 * (e2 + ((e2**2)/4) + ((15*e2**3)/128))
-        A_4 = 15/256 * (e2**2 + (3*(e2**3))/4)
-        A_6 = (35*(e2**3))/3072
+        A_0 = 1 - (self.e2/4) - (3*(self.e2**2))/64 - (5*(self.e2**3))/256
+        A_2 = 3/8 * (self.e2 + ((self.e2**2)/4) + ((15*self.e2**3)/128))
+        A_4 = 15/256 * (self.e2**2 + (3*(self.e2**3))/4)
+        A_6 = (35*(self.e2**3))/3072
         
-        sigma = a* ((A_0*fi) - (A_2*np.sin(2*fi)) + (A_4*np.sin(4*fi)) - (A_6*np.sin(6*fi)))
+        sigma = self.a* ((A_0*fi) - (A_2*np.sin(2*fi)) + (A_4*np.sin(4*fi)) - (A_6*np.sin(6*fi)))
         
         x = sigma + ((l**2)/2) * (N*np.sin(fi)*np.cos(fi)) * (1 + ((l**2)/12) * ((np.cos(fi))**2) * (5 - t**2 + 9*n2 + (4*n2**2)) + ((l**4)/360) * ((np.cos(fi))**4) * (61 - (58*(t**2)) + (t**4) + (270*n2) - (330 * n2 *(t**2))))
         y = l * (N*np.cos(fi)) * (1 + ((((l**2)/6) * (np.cos(fi))**2) * (1-(t**2) + n2)) +  (((l**4)/(120)) * (np.cos(fi)**4)) * (5 - (18 * (t**2)) + (t**4) + (14*n2) - (58*n2*(t**2))))
@@ -228,9 +272,24 @@ class Transformacje:
     
     
     def uklad_2000(self,fi, lam, a, e2, m_0):
-        N = a/(math.sqrt(1-e2 * np.sin(fi)**2))
+        """
+        
+
+        Parameters
+        Funkcja przyjmuje za parametry długosc i szerokosc geograficzna, dużą półos elipsy , 
+        mimosrod i poludnik osiowy(w przypadku odwzorowania 2000 funkcja sama dobiera poludnik osiowy 
+                                   poprzez wykorzystanie instukcji warunkowych)
+       
+
+        Returns
+        Funckja zwraca współrzędne punktów XY w ukłdzie odniesienia 2000
+        -------
+.
+
+        """
+        N = self.a/(math.sqrt(1-e2 * np.sin(fi)**2))
         t = np.tan(fi)
-        n2 = e2 * np.cos(lam)**2
+        n2 = self.e2 * np.cos(lam)**2
         lam = math.degrees(lam)
         
         if lam > 13.5 and lam < 16.5:
@@ -250,13 +309,13 @@ class Transformacje:
         lam_0 = math.radians(lam_0)
         l = lam - lam_0
         
-        A_0 = 1 - (e2/4) - (3*(e2**2))/64 - (5*(e2**3))/256
-        A_2 = 3/8 * (e2 + ((e2**2)/4) + ((15*e2**3)/128))
-        A_4 = 15/256 * (e2**2 + (3*(e2**3))/4)
-        A_6 = (35*(e2**3))/3072
+        A_0 = 1 - (self.e2/4) - (3*(self.e2**2))/64 - (5*(self.e2**3))/256
+        A_2 = 3/8 * (self.e2 + ((self.e2**2)/4) + ((15*self.e2**3)/128))
+        A_4 = 15/256 * (self.e2**2 + (3*(self.e2**3))/4)
+        A_6 = (35*(self.e2**3))/3072
         
         
-        sigma = a* ((A_0*fi) - (A_2*np.sin(2*fi)) + (A_4*np.sin(4*fi)) - (A_6*np.sin(6*fi)))
+        sigma = self.a* ((A_0*fi) - (A_2*np.sin(2*fi)) + (A_4*np.sin(4*fi)) - (A_6*np.sin(6*fi)))
         
         x = sigma + ((l**2)/2) * (N*np.sin(fi)*np.cos(fi)) * (1 + ((l**2)/12) * ((np.cos(fi))**2) * (5 - t**2 + 9*n2 + (4*n2**2)) + ((l**4)/360) * ((np.cos(fi))**4) * (61 - (58*(t**2)) + (t**4) + (270*n2) - (330 * n2 *(t**2))))
         y = l * (N*np.cos(fi)) * (1 + ((((l**2)/6) * (np.cos(fi))**2) * (1-(t**2) + n2)) +  (((l**4)/(120)) * (np.cos(fi)**4)) * (5 - (18 * (t**2)) + (t**4) + (14*n2) - (58*n2*(t**2))))
@@ -265,6 +324,48 @@ class Transformacje:
         y00 = round(y * m_0 + (s*1000000) + 500000, 3)   
         
         return x00, y00 
+        
+    
+    
+    def neu_(self,X, Y, Z, x, y, z):
+
+        fi, lam, h = self.xyz2plh(X, Y, Z)
+        d_x = x - X
+        d_y = y - Y
+        d_z = z - Z
+        
+        R = np.matrix([((-math.sin(fi) * math.cos(lam)), (-math.sin(fi) * math.sin(lam)), (math.cos(fi))),
+                    ((-math.sin(lam)), (math.cos(lam)), (0)),
+                    ((math.cos(fi) * math.cos(lam)), (math.cos(fi) * math.sin(lam)), (math.sin(fi)))])
+
+        d = np.matrix([d_x, d_y, d_z])
+        d= d.T
+        neu = R*d
+        n = neu[0,0]
+        e = neu[1,0]
+        u = neu[2,0]
+        return n,e,u
+    
+    
+    def katelewacji(self,X, Y, Z, x, y, z):
+        '''
+        Parameters
+        Funkcja za parametry przyjmuje wartosci xyz dwoch punktow
+        
+        Returns
+        
+        Funkcja zwraca kat azymutu i kat elewacji
+        
+        '''
+        n, e, u = Transformacje.neu_(X, Y, Z, x, y, z)
+        Az= math.atan2(e,n)
+        hz = math.sqrt(e**2 + n**2)
+        elewacja = math.atan2(u, hz)
+        if Az < 0 :
+            Az+=2* math.pi
+        
+        return Az, elewacja
+        
 
 
 
